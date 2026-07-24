@@ -42,11 +42,14 @@
       warnings.push("Las calorías parecen demasiado bajas para la distancia.");
     }
     if(data.cadence_spm!=null&&data.cadence_spm<80){
-      warnings.push("La cadencia parece demasiado baja y conviene revisarla.");
+      warnings.push("La cadencia se ha descartado o debe revisarse por ser demasiado baja.");
+    }
+    if(data.distance_km!=null&&data.distance_km>100){
+      warnings.push("La distancia parece demasiado alta y debe revisarse.");
     }
 
     return{
-      parser:"garmin-v3.2-semantic",
+      parser:"garmin-v4-engine",
       found:Object.values(data).filter(v=>v!=null).length,
       data,fields,warnings
     };
