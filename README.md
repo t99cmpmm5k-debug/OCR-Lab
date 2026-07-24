@@ -1,27 +1,17 @@
-# OCR Lab — Garmin Engine V4.3 modular estable
+# OCR Lab — Garmin Engine V4.3.1
 
-Esta versión parte de la V4.2 estable, que ya reconoce correctamente:
+Hotfix del error:
 
-- título, lugar, actividad, fecha y hora;
-- distancia;
-- FC media y máxima;
-- ritmo y tiempo;
-- calorías;
-- cadencia;
-- desnivel.
+`Cannot read properties of undefined (reading 'parse')`
 
-La extracción estable no se ha sustituido.
+Causa:
+el detector podía identificar una pantalla opcional, pero si su archivo de
+parser no estaba cargado o no se había subido correctamente, el registro
+devolvía `undefined`.
 
-## Arquitectura modular
+Solución:
 
-- `screen-detector.js`: identifica la pantalla.
-- `parser-summary.js`: pantalla Resumen.
-- `parser-statistics.js`: pantalla Estadísticas.
-- `parser-training-effect.js`: Training Effect, Stamina y potencia.
-- `parser-splits.js`: Vueltas.
-- `parser-registry.js`: registro y selección de parsers.
-- `fusion.js`: fusión de métricas principales.
-- `garmin.js`: API pública compatible con la aplicación.
-
-Los datos adicionales de Training Effect y Vueltas se conservan dentro de
-`extras` en el JSON final, sin alterar las métricas estables visibles.
+- El registro comprueba que cada parser existe y tiene función `parse`.
+- Si falta un parser opcional, utiliza Estadísticas como respaldo.
+- El motor muestra errores concretos si falta un componente esencial.
+- La extracción estable de V4.2 no se modifica.

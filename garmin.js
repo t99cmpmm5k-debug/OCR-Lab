@@ -2,13 +2,27 @@
   "use strict";
 
   function parse(text){
-    const screen=root.GarminScreenDetector.detect(text);
-    const parser=root.GarminParserRegistry.get(screen.type);
-    const parsed=parser.parse(text);
+    const detector=root.GarminScreenDetector;
+    const registry=root.GarminParserRegistry;
 
+    if(!detector||typeof detector.detect!=="function"){
+      throw new Error("El detector de pantallas Garmin no se ha cargado.");
+    }
+    if(!registry||typeof registry.get!=="function"){
+      throw new Error("El registro de parsers Garmin no se ha cargado.");
+    }
+
+    const screen=detector.detect(text);
+    const parser=registry.get(screen.type);
+
+    if(!parser||typeof parser.parse!=="function"){
+      throw new Error(`No hay un parser Garmin disponible para la pantalla "${screen.type}".`);
+    }
+
+    const parsed=parser.parse(text);
     const fields=parsed.fields||{};
     const data=Object.fromEntries(
-      Object.entries(fields).map(([key,item])=>[key,item.value])
+      Object.entries(fields).map(([key,item])=>[key,item?.value??null])
     );
 
     return {
@@ -23,6 +37,10 @@
   }
 
   function merge(results){
+    if(!root.GarminFusion||typeof root.GarminFusion.merge!=="function"){
+      throw new Error("El fusionador Garmin no se ha cargado.");
+    }
+
     const merged=root.GarminFusion.merge(results);
     merged.extras={
       training_effect:results
@@ -33,8 +51,8 @@
         .flatMap(result=>result.extras?.laps||[])
     };
     merged.architecture={
-      version:"4.3.0",
-      registered_parsers:root.GarminParserRegistry.registered()
+      version:"4.3.1",
+      registered_parsers:root.GarminParserRegistry?.registered?.()||[]
     };
     return merged;
   }
