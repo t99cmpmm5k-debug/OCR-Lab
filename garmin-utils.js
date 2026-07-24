@@ -70,5 +70,50 @@
       : {value,source,confidence};
   }
 
-  root.GarminUtils={MONTHS,cleanText,normalize,linesOf,num,pace,duration,first,around,field};
+
+  function semanticValue(lines,labelRegex,valueRegex,options={}){
+    const {
+      maxDistance=3,
+      preferAfter=true,
+      rejectLabelRegex=null
+    }=options;
+
+    for(let i=0;i<lines.length;i++){
+      const label=lines[i];
+      const normalizedLabel=normalize(label);
+      if(!labelRegex.test(normalizedLabel))continue;
+      if(rejectLabelRegex && rejectLabelRegex.test(normalizedLabel))continue;
+
+      const order=[];
+      if(preferAfter){
+        for(let d=0;d<=maxDistance;d++)if(i+d<lines.length)order.push(i+d);
+        for(let d=1;d<=maxDistance;d++)if(i-d>=0)order.push(i-d);
+      }else{
+        for(let d=0;d<=maxDistance;d++)if(i-d>=0)order.push(i-d);
+        for(let d=1;d<=maxDistance;d++)if(i+d<lines.length)order.push(i+d);
+      }
+
+      for(const idx of order){
+        const source=lines[idx];
+        if(idx!==i && /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ][A-Za-zÁÉÍÓÚÜÑáéíóúüñ .()/-]{3,}$/.test(source))continue;
+        const match=source.match(valueRegex);
+        if(match)return{match,source,label,index:idx,distance:Math.abs(idx-i)};
+      }
+    }
+    return null;
+  }
+
+  function cleanActivityTitle(value){
+    let text=cleanText(value)
+      .replace(/^[<‹«>›»:\s-]+|[<‹«>›»:\s-]+$/g,"")
+      .replace(/\s+/g," ")
+      .trim();
+
+    // Remove common trailing OCR fragments caused by map labels/icons.
+    text=text.replace(/\s+(?:za|2a|z4|24|ia)$/i,"").trim();
+    return text||null;
+  }
+
+
+  root.GarminUtils={MONTHS,cleanText,normalize,linesOf,num,pace,duration,first,around,semanticValue,cleanActivityTitle,field};
 })(window);

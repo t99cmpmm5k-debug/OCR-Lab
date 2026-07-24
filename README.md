@@ -1,18 +1,19 @@
-# OCR Lab V3.1 — Arquitectura modular Garmin
+# OCR Lab V3.2 — Parser semántico Garmin
 
-La aplicación se divide en módulos:
+Parte de la arquitectura modular V3.1.
 
-- `garmin-utils.js`: funciones compartidas.
-- `screen-detector.js`: identifica Resumen o Estadísticas.
-- `parser-summary.js`: extrae identidad y métricas principales.
-- `parser-statistics.js`: extrae métricas avanzadas.
-- `fusion.js`: combina todas las capturas.
-- `garmin.js`: fachada compatible con `app.js`.
+Mejoras:
 
-Reglas principales:
+- Cada dato se extrae por relación `etiqueta → valor`.
+- `Tiempo total` ya no puede confundirse con `Ritmo medio`.
+- `Calorías totales` no se confunden con FC media ni con calorías en reposo.
+- Título y lugar limpian fragmentos OCR finales como `ZA`.
+- Las métricas de Resumen y Estadísticas usan etiquetas Garmin exactas.
+- Se mantiene la fusión multicaptura y la prioridad de Resumen para identidad.
 
-- La captura Resumen es la única que aporta título, lugar, actividad, fecha y hora.
-- Las capturas Estadísticas completan FC máxima, cadencia, desnivel y otras métricas.
-- `Calorías totales` tiene prioridad sobre `Calorías activas`.
-- `Calorías en reposo` nunca se usa como total.
-- La fusión conserva el dato de mayor confianza.
+Archivos principales:
+
+- `parser-summary.js`
+- `parser-statistics.js`
+- `garmin-utils.js`
+- `fusion.js`

@@ -46,7 +46,7 @@
     }
 
     return{
-      parser:"garmin-v3.1-modular",
+      parser:"garmin-v3.2-semantic",
       found:Object.values(data).filter(v=>v!=null).length,
       data,fields,warnings
     };

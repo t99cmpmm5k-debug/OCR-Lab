@@ -4,22 +4,24 @@
 
   function findTitle(lines){
     const blocked=/^(carrera|running|actividad|resumen|estadisticas|vueltas|graficos|equipo)$/i;
-    const candidates=lines
-      .map(x=>x.replace(/^[<‹«]\s*/,"").trim())
-      .filter(x=>x.length>=5 && x.length<=70)
-      .filter(x=>!blocked.test(U.normalize(x)))
-      .filter(x=>!/anadir notas|añadir notas/.test(U.normalize(x)))
-      .filter(x=>!/\b\d{1,2}:\d{2}\b/.test(x))
-      .filter(x=>!/\b\d+(?:[,.]\d+)?\s*(?:km|ppm|kcal|m)\b/i.test(x));
+    const noteIndex=lines.findIndex(x=>/anadir notas|añadir notas/.test(U.normalize(x)));
 
-    const idx=lines.findIndex(x=>/anadir notas|añadir notas/.test(U.normalize(x)));
-    if(idx>0){
-      const before=lines.slice(Math.max(0,idx-3),idx).reverse()
-        .find(x=>x.length>=5 && !blocked.test(U.normalize(x)) && !/\b\d{1,2}:\d{2}\b/.test(x));
-      if(before)return before;
+    const pool=noteIndex>0
+      ? lines.slice(Math.max(0,noteIndex-4),noteIndex).reverse()
+      : lines;
+
+    for(const line of pool){
+      const candidate=U.cleanActivityTitle(line);
+      if(!candidate)continue;
+      const n=U.normalize(candidate);
+      if(blocked.test(n))continue;
+      if(/\b\d{1,2}:\d{2}\b/.test(candidate))continue;
+      if(/\b\d+(?:[,.]\d+)?\s*(?:km|ppm|kcal|m)\b/i.test(candidate))continue;
+      if(/anadir notas|añadir notas/.test(n))continue;
+      if(/\b(carrera|rodaje|running|trail|tempo|series|entrenamiento)\b/.test(n))return candidate;
     }
 
-    return candidates.find(x=>/\b(carrera|rodaje|running|trail|tempo|series|entrenamiento)\b/i.test(U.normalize(x)))||null;
+    return null;
   }
 
   function parse(text){
@@ -35,33 +37,62 @@
       const n=U.normalize(title);
       const activityMatch=n.match(/\b(carrera|rodaje|running|trail|tempo|series|entrenamiento)\b/);
       if(activityMatch){
-        activity=title.match(new RegExp(activityMatch[1],"i"))?.[0]||activityMatch[1];
+        activity=title.match(new RegExp(`\\b${activityMatch[1]}\\b`,"i"))?.[0]||activityMatch[1];
         location=title.replace(new RegExp(`\\b${activityMatch[1]}\\b`,"i"),"").trim()||null;
       }else{
         location=title;
       }
     }
 
-    const distance=U.around(lines,/\bdistancia\b/,/\b([0-9]{1,3}(?:[,.][0-9]{1,2})?)\s*(?:km)?\b/i,2);
-    const avgHr=U.around(lines,/frecuencia cardiaca media|fc media/,/\b([3-9][0-9]|1[0-9]{2}|2[0-4][0-9])\s*(?:ppm|bpm)?\b/i,2);
-    const avgPace=U.around(lines,/ritmo medio/,/\b([0-9]{1,2}\s*[:.]\s*[0-5][0-9])\s*(?:\/\s*km|km)?\b/i,2);
-    const totalTime=U.around(lines,/tiempo total/,/\b(?:[0-9]{1,2}:)?[0-9]{1,3}:[0-5][0-9]\b/,2);
-    const calories=U.around(lines,/calorias totales|total de calorias quemadas/,/\b([0-9]{2,5})\b/,2);
+    const distance=U.semanticValue(
+      lines,
+      /\bdistancia\b/,
+      /\b([0-9]{1,3}(?:[,.][0-9]{1,2})?)\s*(?:km)?\b/i,
+      {maxDistance:2}
+    );
+
+    const avgHr=U.semanticValue(
+      lines,
+      /frecuencia cardiaca media|fc media/,
+      /\b([3-9][0-9]|1[0-9]{2}|2[0-4][0-9])\s*(?:ppm|bpm)?\b/i,
+      {maxDistance:2}
+    );
+
+    const avgPace=U.semanticValue(
+      lines,
+      /^ritmo medio$/,
+      /\b([0-9]{1,2}\s*[:.]\s*[0-5][0-9])\s*(?:\/\s*km|km)?\b/i,
+      {maxDistance:2}
+    );
+
+    const totalTime=U.semanticValue(
+      lines,
+      /^tiempo total$/,
+      /\b(?:[0-9]{1,2}:)?[0-9]{1,3}:[0-5][0-9]\b/,
+      {maxDistance:2}
+    );
+
+    const calories=U.semanticValue(
+      lines,
+      /^calorias totales$|^total de calorias quemadas$/,
+      /\b([0-9]{2,5})\b/,
+      {maxDistance:2}
+    );
 
     fields.source=U.field("Garmin","Pantalla Resumen",.99);
     fields.screen_type=U.field("summary","Resumen",.99);
-    fields.title=U.field(title,title,title?.95:0);
-    fields.location=U.field(location,title,location?.93:0);
-    fields.activity=U.field(activity,title,activity?.93:0);
+    fields.title=U.field(title,title,title?.96:0);
+    fields.location=U.field(location,title,location?.94:0);
+    fields.activity=U.field(activity,title,activity?.94:0);
     fields.date=U.field(date?`${Number(date.match[1])} ${date.match[2].toLowerCase()}${date.match[3]?" "+date.match[3]:""}`:null,date?.source,date?.97:0);
     fields.time=U.field(time?`${Number(time.match[1])}:${time.match[2]}`:null,time?.source,time?.9:0);
-    fields.distance_km=U.field(distance?U.num(distance.match[1]):null,distance?.source,distance?.97:0);
+    fields.distance_km=U.field(distance?U.num(distance.match[1]):null,distance?.source,distance?.98:0);
     fields.avg_heart_rate_bpm=U.field(avgHr?U.num(avgHr.match[1]):null,avgHr?.source,avgHr?.98:0);
     fields.avg_pace_min_km=U.field(avgPace?U.pace(avgPace.match[1]):null,avgPace?.source,avgPace?.98:0);
-    fields.total_time=U.field(totalTime?U.duration(totalTime.match[0]):null,totalTime?.source,totalTime?.96:0);
-    fields.calories_kcal=U.field(calories?U.num(calories.match[1]):null,calories?.source,calories?.97:0);
+    fields.total_time=U.field(totalTime?U.duration(totalTime.match[0]):null,totalTime?.source,totalTime?.98:0);
+    fields.calories_kcal=U.field(calories?U.num(calories.match[1]):null,calories?.source,calories?.98:0);
 
-    return {parser:"summary-v3.1",fields};
+    return {parser:"summary-v3.2-semantic",fields};
   }
 
   root.GarminSummaryParser={parse};
