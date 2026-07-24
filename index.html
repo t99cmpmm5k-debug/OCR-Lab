@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#071e33">
+  <title>OCR Lab V2.3</title>
+  <link rel="stylesheet" href="styles.css?v=2.3.0">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="hero">
+      <p class="eyebrow">OCR LAB · V2.3.0</p>
+      <h1>Parser Garmin</h1>
+      <p class="intro">Lee una captura con Tesseract y convierte el texto reconocido en métricas estructuradas. No guarda ningún dato.</p>
+    </header>
+
+    <section class="card">
+      <label class="upload-button" for="imageInput">Subir una captura</label>
+      <input id="imageInput" type="file" accept="image/*" hidden>
+      <p id="fileInfo" class="muted">Ningún archivo seleccionado.</p>
+      <img id="preview" class="preview" alt="Vista previa de la captura" hidden>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <h2>Estado</h2>
+        <span id="statusBadge" class="badge idle">Esperando imagen</span>
+      </div>
+      <p id="statusText" class="status-text">Selecciona una captura para comenzar.</p>
+      <div class="progress-track" aria-hidden="true"><div id="progressBar" class="progress-bar"></div></div>
+      <p id="progressText" class="muted small">0 %</p>
+    </section>
+
+    <section id="metricsCard" class="card" hidden>
+      <div class="section-head"><h2>Métricas detectadas</h2><span id="foundBadge" class="badge success"></span></div>
+      <div id="metricsGrid" class="metrics-grid"></div>
+    </section>
+
+    <section id="jsonCard" class="card" hidden>
+      <div class="section-head"><h2>JSON estructurado</h2><button id="copyJsonButton" class="secondary-button" type="button">Copiar</button></div>
+      <pre id="jsonOutput" class="output"></pre>
+    </section>
+
+    <section id="resultCard" class="card" hidden>
+      <div class="section-head"><h2>Texto OCR bruto</h2><button id="copyButton" class="secondary-button" type="button">Copiar</button></div>
+      <pre id="ocrOutput" class="output"></pre>
+    </section>
+
+    <section id="errorCard" class="card error-card" hidden>
+      <h2>Error técnico</h2>
+      <pre id="errorOutput" class="output error-output"></pre>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+  <script src="parser/garmin.js?v=2.3.0"></script>
+  <script src="app.js?v=2.3.0"></script>
+</body>
+</html>
