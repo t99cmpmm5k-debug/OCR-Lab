@@ -50,29 +50,48 @@
   }
 
   function avgHeartRate(raw){
-    return findAnchored(
-      raw,
-      ["frecuencia cardiaca media","fc media"],
-      ["(?:[3-9][0-9]|1[0-9]{2}|2[0-4][0-9])\\s*(?:ppm|bpm)"],
-      numberParser,
-      V.heartRate
-    );
+    const text=compact(raw);
+    const patterns=[
+      /frecuencia cardiaca media[\s\S]{0,35}?((?:[3-9][0-9]|1[0-9]{2}|2[0-4][0-9])\s*(?:ppm|bpm))/i,
+      /((?:[3-9][0-9]|1[0-9]{2}|2[0-4][0-9])\s*(?:ppm|bpm))[\s\S]{0,35}?frecuencia cardiaca media/i,
+      /fc media[\s\S]{0,25}?((?:[3-9][0-9]|1[0-9]{2}|2[0-4][0-9])\s*(?:ppm|bpm))/i,
+      /((?:[3-9][0-9]|1[0-9]{2}|2[0-4][0-9])\s*(?:ppm|bpm))[\s\S]{0,25}?fc media/i
+    ];
+
+    for(const regex of patterns){
+      const m=text.match(regex);
+      if(!m)continue;
+      if(/max\.?|maxima/.test(normalizeLabel(m[0])))continue;
+      const value=numberParser(m[1]);
+      if(V.heartRate(value))return{value,source:m[0],confidence:.99};
+    }
+    return null;
   }
 
   function maxHeartRate(raw){
-    return findAnchored(
-      raw,
-      ["frecuencia cardiaca maxima","frec\\.?\\s*cardiaca\\s*max\\.?","fc maxima"],
-      ["(?:[3-9][0-9]|1[0-9]{2}|2[0-4][0-9])\\s*(?:ppm|bpm)"],
-      numberParser,
-      V.heartRate
-    );
+    const text=compact(raw);
+    const patterns=[
+      /(?:frecuencia cardiaca maxima|frec\.?\s*cardiaca\s*max\.?|fc maxima)[\s\S]{0,35}?((?:[3-9][0-9]|1[0-9]{2}|2[0-4][0-9])\s*(?:ppm|bpm))/i,
+      /((?:[3-9][0-9]|1[0-9]{2}|2[0-4][0-9])\s*(?:ppm|bpm))[\s\S]{0,35}?(?:frecuencia cardiaca maxima|frec\.?\s*cardiaca\s*max\.?|fc maxima)/i
+    ];
+    for(const regex of patterns){
+      const m=text.match(regex);
+      if(!m)continue;
+      const value=numberParser(m[1]);
+      if(V.heartRate(value))return{value,source:m[0],confidence:.99};
+    }
+    return null;
   }
 
   function avgPace(raw){
     return findAnchored(
       raw,
-      ["ritmo medio(?: en movimiento)?","ritmo del recorrido"],
+      [
+        "ritmo medio(?: en movimiento)?",
+        "ritmo promedio",
+        "ritmo del recorrido",
+        "ritmo medio de carrera"
+      ],
       ["[0-9]{1,2}\\s*[:.]\\s*[0-5][0-9]\\s*\\/\\s*km"],
       paceParser,
       V.pace
@@ -82,7 +101,12 @@
   function totalTime(raw){
     return findAnchored(
       raw,
-      ["tiempo total"],
+      [
+        "tiempo total",
+        "duracion total",
+        "tiempo de actividad",
+        "tiempo del recorrido"
+      ],
       ["(?:[0-9]{1,2}:)?[0-9]{1,3}:[0-5][0-9]"],
       durationParser,
       V.duration
@@ -90,22 +114,33 @@
   }
 
   function calories(raw){
-    const total=findAnchored(
-      raw,
-      ["total de calorias quemadas","calorias totales"],
-      ["[0-9]{2,5}(?:\\s*kcal)?"],
-      numberParser,
-      V.calories
-    );
-    if(total)return total;
+    const text=compact(raw);
 
-    return findAnchored(
-      raw,
-      ["calorias activas"],
-      ["[0-9]{2,5}(?:\\s*kcal)?"],
-      numberParser,
-      V.calories
-    );
+    const totalPatterns=[
+      /(?:calorias totales|total de calorias quemadas|total de calorias|total calorias)[\s\S]{0,30}?([0-9]{2,5}(?:\s*kcal)?)/i,
+      /([0-9]{2,5}(?:\s*kcal)?)[\s\S]{0,30}?(?:calorias totales|total de calorias quemadas|total de calorias|total calorias)/i
+    ];
+
+    for(const regex of totalPatterns){
+      const m=text.match(regex);
+      if(!m)continue;
+      if(/reposo/.test(normalizeLabel(m[0])))continue;
+      const value=numberParser(m[1]);
+      if(V.calories(value))return{value,source:m[0],confidence:.99};
+    }
+
+    const activePatterns=[
+      /calorias activas[\s\S]{0,25}?([0-9]{2,5}(?:\s*kcal)?)/i,
+      /([0-9]{2,5}(?:\s*kcal)?)[\s\S]{0,25}?calorias activas/i
+    ];
+    for(const regex of activePatterns){
+      const m=text.match(regex);
+      if(!m)continue;
+      const value=numberParser(m[1]);
+      if(V.calories(value))return{value,source:m[0],confidence:.96};
+    }
+
+    return null;
   }
 
   function cadence(raw){

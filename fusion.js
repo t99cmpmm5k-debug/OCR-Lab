@@ -49,7 +49,7 @@
     }
 
     return{
-      parser:"garmin-v4-engine",
+      parser:"garmin-v4.1-engine",
       found:Object.values(data).filter(v=>v!=null).length,
       data,fields,warnings
     };

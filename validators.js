@@ -5,9 +5,9 @@
     return Number.isFinite(value) && value>=min && value<=max;
   }
 
-  function distance(value){ return inRange(value,0.05,500); }
+  function distance(value){ return inRange(value,0.05,300); }
   function heartRate(value){ return inRange(value,35,240); }
-  function calories(value){ return inRange(value,1,10000); }
+  function calories(value){ return inRange(value,10,10000); }
   function cadence(value){ return inRange(value,80,260); }
   function temperature(value){ return inRange(value,-40,65); }
   function elevation(value){ return inRange(value,0,20000); }
