@@ -24,11 +24,37 @@
   const field=(value,source,confidence)=>value==null?{value:null,source:null,confidence:0}:{value,source,confidence};
   const UI_NOISE = /(?:deteccion de carrera|carrera\/caminar|caminar ayuda|ayuda|configuracion|dispositivo|editar|compartir|guardar|eliminar|mapa|graficos|equipo|vueltas|estadisticas|resumen|anadir notas)/i;
 
+  function summaryEvidence(text){
+    const raw=cleanText(text);
+    const n=normalize(raw);
+    const lines=linesOf(raw);
+
+    const hasAddNotes=/anadir notas|añadir notas/.test(n);
+    const hasDate=new RegExp(`\\b[0-3]?[0-9]\\s+(${MONTHS})(?:\\s+20[0-9]{2})?\\b`,"i").test(raw);
+    const hasActivityTitle=lines.some(line=>{
+      const safe=normalize(line);
+      return /\s[-–—]\s/.test(line)
+        && /\b(rodaje|carrera|running|trail|tempo|series|intervalos|recuperacion|entrenamiento)\b/.test(safe)
+        && !UI_NOISE.test(safe);
+    });
+    const hasSummaryTabs=/resumen/.test(n)&&/estadisticas/.test(n)&&/vueltas/.test(n);
+    const hasLocationTitle=lines.some(line=>/\s[-–—]\s/.test(line)&&line.length>=8&&line.length<=75&&!UI_NOISE.test(normalize(line)));
+
+    let score=0;
+    if(hasAddNotes)score+=5;
+    if(hasDate)score+=4;
+    if(hasActivityTitle)score+=5;
+    if(hasSummaryTabs)score+=1;
+    if(hasLocationTitle)score+=2;
+
+    return {score,hasAddNotes,hasDate,hasActivityTitle,hasSummaryTabs,hasLocationTitle};
+  }
+
   function classify(text){
     const n=normalize(text);
+    const summary=summaryEvidence(text);
     const rules=[
-      ["summary", ["resumen","distancia","tiempo total","ritmo medio","calorias"]],
-      ["statistics", ["estadisticas","ritmo medio","velocidad media","tiempo en movimiento","calorias"]],
+      ["statistics", ["estadisticas","velocidad media","tiempo en movimiento","ritmo medio","calorias"]],
       ["heart_rate", ["frecuencia cardiaca","fc media","fc maxima","zonas de frecuencia"]],
       ["running_dynamics", ["cadencia","longitud de zancada","oscilacion vertical","tiempo de contacto"]],
       ["elevation", ["desnivel","ascenso total","descenso total","elevacion"]],
@@ -39,11 +65,23 @@
       type,
       score:words.reduce((sum,w)=>sum+(n.includes(w)?1:0),0)
     })).sort((a,b)=>b.score-a.score);
+
+    // Garmin summary is identified by its own structure, not by generic metric labels.
+    if(summary.score>=5){
+      return {
+        type:"summary",
+        confidence:Math.min(.99,.62+summary.score*.035),
+        scores:{summary:summary.score,...Object.fromEntries(ranked.map(x=>[x.type,x.score]))},
+        summary
+      };
+    }
+
     const best=ranked[0];
     return {
       type:best.score ? best.type : "unknown",
       confidence:best.score ? Math.min(.99,.55+best.score*.1) : .25,
-      scores:Object.fromEntries(ranked.map(x=>[x.type,x.score]))
+      scores:{summary:summary.score,...Object.fromEntries(ranked.map(x=>[x.type,x.score]))},
+      summary
     };
   }
 
@@ -93,11 +131,13 @@
     const cad=around(lines,/cadencia media|cadencia promedio|cadencia/,/\b([1-2]?[0-9]{2})\s*(?:ppm|spm|pasos\/min)?\b/i,3);
     const temp=around(lines,/temperatura media|temperatura/,/\b(-?[0-9]{1,2}(?:[,.][0-9])?)\s*°?\s*c\b/i,3);
     const elev=around(lines,/desnivel positivo|ascenso total|ganancia de altura|elevacion/,/\b([0-9]{1,5})\s*m\b/i,3);
-    const date=first(raw,new RegExp(`\\b([0-3]?[0-9])\\s+(${MONTHS})(?:\\s+(20[0-9]{2}))?\\b`,"i"));
+    const date=screen.type==="summary"
+      ? first(raw,new RegExp(`\\b([0-3]?[0-9])\\s+(${MONTHS})(?:\\s+(20[0-9]{2}))?\\b`,"i"))
+      : null;
     const clocks=[...raw.matchAll(/\b([0-2]?[0-9]):([0-5][0-9])\b/g)]
       .map(m=>({value:`${Number(m[1])}:${m[2]}`,source:m[0],index:m.index||0}))
       .filter(x=>!avgPace||x.value!==avgPace)
-      .filter(x=>screen.type==="summary" || Boolean(date));
+      .filter(x=>screen.type==="summary" && Boolean(date));
     const title=detectTitle(lines,screen.type);let location=null,activity=null;
     if(title){
       const safeTitle=normalize(title).replace(/^[<‹«>›»:\s-]+|[<‹«>›»:\s-]+$/g,"").trim();
@@ -126,7 +166,7 @@
       elevation_gain_m:field(elev?num(elev.match[1]):null,elev?.source,elev?.9:0)
     };
     const data=Object.fromEntries(Object.entries(fields).map(([k,v])=>[k,v.value]));
-    return{parser:"garmin-v2.6.0",screen,found:Object.values(fields).filter(x=>x.value!=null).length,data,fields,raw_text:raw};
+    return{parser:"garmin-v2.7.0",screen,found:Object.values(fields).filter(x=>x.value!=null).length,data,fields,raw_text:raw};
   }
   function merge(results){
     const mergedFields={};
@@ -141,7 +181,7 @@
     const allKeys=["source","screen_type","title","location","activity","date","time","distance_km","avg_heart_rate_bpm","max_heart_rate_bpm","avg_pace_min_km","total_time","calories_kcal","cadence_spm","temperature_c","elevation_gain_m"];
     allKeys.forEach(k=>{if(!mergedFields[k])mergedFields[k]=field(null,null,0)});
     const data=Object.fromEntries(allKeys.map(k=>[k,mergedFields[k].value]));
-    return{parser:"garmin-v2.6.0-merge",found:Object.values(data).filter(v=>v!=null).length,data,fields:mergedFields};
+    return{parser:"garmin-v2.7.0-merge",found:Object.values(data).filter(v=>v!=null).length,data,fields:mergedFields};
   }
-  return{parse,merge,classify,cleanText,normalize};
+  return{parse,merge,classify,summaryEvidence,cleanText,normalize};
 });

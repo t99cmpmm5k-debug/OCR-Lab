@@ -1,16 +1,16 @@
-# OCR Lab V2.6 — Corrección de título Garmin
+# OCR Lab V2.7 — Detección de pantalla Resumen Garmin
 
-Esta versión parte directamente de la V2.5 funcional.
+Parte de la V2.6 funcional.
 
-Único cambio del sprint:
+Único objetivo del sprint:
 
-- Bloquea como título y actividad textos de navegación como:
-  - `< Carrera :`
-  - `Carrera`
-  - `Running`
-  - `Actividad`
-  - `Resumen`
-  - `Estadísticas`
+- Identificar la pantalla principal «Resumen» mediante señales propias:
+  - «Añadir notas»
+  - fecha de la actividad
+  - título con lugar y tipo de entrenamiento
+  - pestañas Resumen / Estadísticas / Vueltas
+- Extraer título, lugar, actividad, fecha y hora únicamente de esa pantalla.
+- No tomar como hora del entrenamiento una hora procedente de otra captura.
 
-No cambia el OCR multicaptura, la fusión, el diseño ni la clasificación de pantallas.
+No cambia el OCR multicaptura, el diseño ni la fusión del resto de métricas.
 No modifica Corredor Sólido.
