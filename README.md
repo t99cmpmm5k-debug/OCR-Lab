@@ -1,20 +1,25 @@
-# OCR Lab — Garmin Engine V5
+# OCR Lab — Garmin Engine V6
 
 Arquitectura:
 
-1. OCR por captura.
-2. Detección de pantalla.
-3. Parser de identidad.
-4. Extracción de todos los candidatos posibles.
-5. Validación por tipo.
-6. Resolución de conflictos.
-7. JSON final.
+1. Cada captura se procesa por separado.
+2. Cada captura genera un JSON estructurado propio.
+3. El fusionador solo combina JSON válidos.
+4. Los conflictos se resuelven por confianza, prioridad y consenso.
 
-Novedades:
+Ejemplo por captura:
 
-- Cada captura genera sus propios candidatos.
-- El resolver compara prioridad, confianza y consenso.
-- La pantalla Resumen conserva la propiedad de título, lugar, actividad, fecha y hora.
-- Las capturas Estadísticas compiten por FC máxima, calorías, cadencia y desnivel.
-- Calorías totales tiene más prioridad que calorías activas.
-- FC media y FC máxima se resuelven como campos independientes.
+```json
+{
+  "screen_type": "statistics",
+  "metrics": {
+    "avg_heart_rate_bpm": 153,
+    "max_heart_rate_bpm": 188,
+    "avg_pace_min_km": "8:24",
+    "total_time": "33:17"
+  }
+}
+```
+
+La captura Resumen conserva título, lugar, actividad, fecha y hora.
+Las capturas Estadísticas completan FC máxima, calorías, cadencia, desnivel y temperatura.

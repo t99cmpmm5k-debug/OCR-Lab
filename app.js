@@ -70,7 +70,7 @@ function renderDebug(results){
 async function run(files){
  reset();
  if(!window.Tesseract?.recognize)throw new Error("Tesseract.js no se ha cargado.");
- if(!window.GarminParser?.parse||!window.GarminParser?.merge)throw new Error("El parser Garmin V5 no se ha cargado.");
+ if(!window.GarminParser?.parse||!window.GarminParser?.merge)throw new Error("El parser Garmin V6 no se ha cargado.");
  setStatus("Procesando",`Preparando ${files.length} capturas…`,"working");
  const results=[];
  for(let i=0;i<files.length;i++){results.push(await readOne(files[i],i,files.length));setProgress(i+1,files.length)}
