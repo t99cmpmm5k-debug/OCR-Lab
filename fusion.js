@@ -49,7 +49,7 @@
     }
 
     return{
-      parser:"garmin-v4.2-stable",
+      parser:"garmin-v4.3-modular-stable",
       found:Object.values(data).filter(v=>v!=null).length,
       data,fields,warnings
     };

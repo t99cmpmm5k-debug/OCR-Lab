@@ -3,30 +3,40 @@
 
   function parse(text){
     const screen=root.GarminScreenDetector.detect(text);
-    let parsed;
+    const parser=root.GarminParserRegistry.get(screen.type);
+    const parsed=parser.parse(text);
 
-    if(screen.type==="summary"){
-      parsed=root.GarminSummaryParser.parse(text);
-    }else{
-      parsed=root.GarminStatisticsParser.parse(text);
-    }
-
+    const fields=parsed.fields||{};
     const data=Object.fromEntries(
-      Object.entries(parsed.fields).map(([k,v])=>[k,v.value])
+      Object.entries(fields).map(([key,item])=>[key,item.value])
     );
 
-    return{
+    return {
       parser:parsed.parser,
       screen,
-      found:Object.values(data).filter(v=>v!=null).length,
+      found:Object.values(data).filter(value=>value!=null).length,
       data,
-      fields:parsed.fields,
+      fields,
+      extras:parsed.extras||{},
       raw_text:text
     };
   }
 
   function merge(results){
-    return root.GarminFusion.merge(results);
+    const merged=root.GarminFusion.merge(results);
+    merged.extras={
+      training_effect:results
+        .filter(result=>result.screen?.type==="training_effect")
+        .map(result=>result.extras),
+      splits:results
+        .filter(result=>result.screen?.type==="splits")
+        .flatMap(result=>result.extras?.laps||[])
+    };
+    merged.architecture={
+      version:"4.3.0",
+      registered_parsers:root.GarminParserRegistry.registered()
+    };
+    return merged;
   }
 
   root.GarminParser={parse,merge};

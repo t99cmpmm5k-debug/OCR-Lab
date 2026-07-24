@@ -9,11 +9,19 @@
       return {type:"summary",confidence:.99};
     }
 
+    if(/\bvueltas\b/.test(n) && !/\bestadisticas\b/.test(n)){
+      return {type:"splits",confidence:.97};
+    }
+
+    if(/training effect|efecto aerobico|efecto anaerobico|carga de ejercicio|stamina/.test(n)){
+      return {type:"training_effect",confidence:.97};
+    }
+
     if(/\bestadisticas\b/.test(n)){
       return {type:"statistics",confidence:.98};
     }
 
-    return {type:"unknown",confidence:.35};
+    return {type:"statistics",confidence:.55};
   }
 
   root.GarminScreenDetector={detect};
