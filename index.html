@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#020b14">
+  <title>OCR Lab · V2</title>
+  <link rel="stylesheet" href="styles.css?v=2.0.0">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="hero">
+      <p class="eyebrow">OCR LAB · V2.0.0</p>
+      <h1>Parser Garmin</h1>
+      <p class="intro">Laboratorio independiente para leer una captura, mostrar el OCR bruto y convertir únicamente los datos reconocidos en métricas estructuradas.</p>
+    </header>
+
+    <section class="card upload-card">
+      <input id="fileInput" type="file" accept="image/*" hidden>
+      <button id="uploadButton" class="primary-button" type="button">Subir una captura</button>
+      <p class="help">Primera fase: una imagen cada vez. No se guarda ningún dato.</p>
+      <img id="preview" class="preview" alt="Vista previa de la captura" hidden>
+    </section>
+
+    <section class="card" aria-live="polite">
+      <p class="section-label">Estado</p>
+      <h2 id="statusText">Esperando una captura</h2>
+      <progress id="progressBar" max="100" value="0"></progress>
+      <div class="stats-grid">
+        <div><span>Progreso</span><strong id="progressText">0 %</strong></div>
+        <div><span>Marca</span><strong id="brandText">—</strong></div>
+        <div><span>Confianza OCR</span><strong id="confidenceText">—</strong></div>
+        <div><span>Tiempo</span><strong id="timeText">—</strong></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="section-heading">
+        <div>
+          <p class="section-label">Datos detectados</p>
+          <h2>Resultado del parser</h2>
+        </div>
+        <span id="parserBadge" class="badge">Garmin parser 4.0.0</span>
+      </div>
+      <div id="metrics" class="metrics"></div>
+      <div id="warnings" class="warnings" hidden></div>
+    </section>
+
+    <section class="card">
+      <div class="section-heading">
+        <div>
+          <p class="section-label">Diagnóstico</p>
+          <h2>Texto OCR bruto</h2>
+        </div>
+        <span id="characterCount" class="badge">0 caracteres</span>
+      </div>
+      <div class="button-row">
+        <button id="copyTextButton" class="secondary-button" type="button" disabled>Copiar texto OCR</button>
+        <button id="copyJsonButton" class="secondary-button" type="button" disabled>Copiar JSON</button>
+      </div>
+      <pre id="rawText">Todavía no se ha procesado ninguna imagen.</pre>
+      <h3>JSON normalizado</h3>
+      <pre id="jsonOutput">{}</pre>
+    </section>
+
+    <footer>Base definitiva OCR Lab · No integrada todavía en Corredor Sólido.</footer>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="parser/garmin.js?v=2.0.0"></script>
+  <script src="ocr/worker.js?v=2.0.0"></script>
+  <script src="app.js?v=2.0.0"></script>
+</body>
+</html>
