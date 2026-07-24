@@ -1,16 +1,15 @@
-# OCR Lab V2.7 — Detección de pantalla Resumen Garmin
+# OCR Lab V2.8 — Métricas Garmin
 
-Parte de la V2.6 funcional.
+Parte de la V2.7 funcional.
 
-Único objetivo del sprint:
+Correcciones:
 
-- Identificar la pantalla principal «Resumen» mediante señales propias:
-  - «Añadir notas»
-  - fecha de la actividad
-  - título con lugar y tipo de entrenamiento
-  - pestañas Resumen / Estadísticas / Vueltas
-- Extraer título, lugar, actividad, fecha y hora únicamente de esa pantalla.
-- No tomar como hora del entrenamiento una hora procedente de otra captura.
+- Detecta `Frec. cardiaca máx.` y extrae la FC máxima.
+- Prioriza `Total de calorías quemadas`.
+- Usa `Calorías activas` como segunda opción.
+- Nunca interpreta `Calorías en reposo` como calorías totales.
+- Las capturas tomadas dentro de la pestaña Estadísticas se clasifican como `statistics`.
 
-No cambia el OCR multicaptura, el diseño ni la fusión del resto de métricas.
-No modifica Corredor Sólido.
+Importante:
+Título, lugar, actividad, fecha y hora de la actividad solo pueden obtenerse
+si se añade al menos una captura de la pestaña `Resumen`.

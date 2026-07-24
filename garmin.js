@@ -53,6 +53,18 @@
   function classify(text){
     const n=normalize(text);
     const summary=summaryEvidence(text);
+
+    // Todas las capturas aportadas desde la pestaña "Estadísticas"
+    // pertenecen a la misma pantalla, aunque muestren secciones diferentes.
+    if(/\bestadisticas\b/.test(n) && !summary.hasAddNotes && !summary.hasDate && !summary.hasActivityTitle){
+      return {
+        type:"statistics",
+        confidence:.98,
+        scores:{summary:summary.score,statistics:10},
+        summary
+      };
+    }
+
     const rules=[
       ["statistics", ["estadisticas","velocidad media","tiempo en movimiento","ritmo medio","calorias"]],
       ["heart_rate", ["frecuencia cardiaca","fc media","fc maxima","zonas de frecuencia"]],
@@ -121,13 +133,38 @@
     let distance=dist?num(dist.match[1]):null, distanceSource=dist?.source||null;
     if(distance==null){const m=first(raw,/\b([0-9]{1,3}[,.][0-9]{1,2})\s*(?:km)?\s*\n\s*distancia\b/i);if(m){distance=num(m.match[1]);distanceSource=m.source}}
     const avg=around(lines,/frecuencia cardiaca media|fc media|pulso medio/,/\b([3-9][0-9]|1[0-9]{2}|2[0-4][0-9])\s*(?:ppm|bpm)?\b/i,3);
-    const max=around(lines,/frecuencia cardiaca maxima|fc maxima|pulso maximo/,/\b([3-9][0-9]|1[0-9]{2}|2[0-4][0-9])\s*(?:ppm|bpm)?\b/i,3);
+    const max=around(
+      lines,
+      /frecuencia cardiaca maxima|frec\.?\s*cardiaca\s*max\.?|fc maxima|pulso maximo/,
+      /\b([3-9][0-9]|1[0-9]{2}|2[0-4][0-9])\s*(?:ppm|bpm)?\b/i,
+      3
+    );
     const paceCtx=around(lines,/ritmo medio|ritmo promedio/,/\b([0-9]{1,2}\s*[:.]\s*[0-5][0-9])\s*(?:\/\s*km|km)?\b/i,3);
     let avgPace=paceCtx?pace(paceCtx.match[1]):null, paceSource=paceCtx?.source||null;
     if(!avgPace){const m=first(raw,/\b([0-9]{1,2}\s*[:.]\s*[0-5][0-9])\s*(?:\/\s*km|km)\b/i);if(m){avgPace=pace(m.match[1]);paceSource=m.source}}
     const timeCtx=around(lines,/tiempo total|duracion|tiempo transcurrido|tiempo/,/\b(?:[0-9]{1,2}:)?[0-9]{1,3}:[0-5][0-9]\b/,2);
     let totalTime=timeCtx?duration(timeCtx.match[0]):null;if(totalTime===avgPace)totalTime=null;
-    const cal=around(lines,/calorias totales|calorias/,/\b([0-9]{2,5})\s*(?:kcal|cal)?\b/i,2);
+    const calTotal=around(
+      lines,
+      /total de calorias quemadas|calorias totales|total calorias/,
+      /\b([0-9]{2,5})\s*(?:kcal|cal)?\b/i,
+      2
+    );
+    const calActive=around(
+      lines,
+      /calorias activas/,
+      /\b([0-9]{2,5})\s*(?:kcal|cal)?\b/i,
+      2
+    );
+    const calGeneric=around(
+      lines,
+      /calorias/,
+      /\b([0-9]{2,5})\s*(?:kcal|cal)?\b/i,
+      2
+    );
+    const cal=(calTotal||calActive||(
+      calGeneric && !/reposo/.test(normalize(calGeneric.label||"")) ? calGeneric : null
+    ));
     const cad=around(lines,/cadencia media|cadencia promedio|cadencia/,/\b([1-2]?[0-9]{2})\s*(?:ppm|spm|pasos\/min)?\b/i,3);
     const temp=around(lines,/temperatura media|temperatura/,/\b(-?[0-9]{1,2}(?:[,.][0-9])?)\s*°?\s*c\b/i,3);
     const elev=around(lines,/desnivel positivo|ascenso total|ganancia de altura|elevacion/,/\b([0-9]{1,5})\s*m\b/i,3);
@@ -166,7 +203,7 @@
       elevation_gain_m:field(elev?num(elev.match[1]):null,elev?.source,elev?.9:0)
     };
     const data=Object.fromEntries(Object.entries(fields).map(([k,v])=>[k,v.value]));
-    return{parser:"garmin-v2.7.0",screen,found:Object.values(fields).filter(x=>x.value!=null).length,data,fields,raw_text:raw};
+    return{parser:"garmin-v2.8.0",screen,found:Object.values(fields).filter(x=>x.value!=null).length,data,fields,raw_text:raw};
   }
   function merge(results){
     const mergedFields={};
@@ -181,7 +218,7 @@
     const allKeys=["source","screen_type","title","location","activity","date","time","distance_km","avg_heart_rate_bpm","max_heart_rate_bpm","avg_pace_min_km","total_time","calories_kcal","cadence_spm","temperature_c","elevation_gain_m"];
     allKeys.forEach(k=>{if(!mergedFields[k])mergedFields[k]=field(null,null,0)});
     const data=Object.fromEntries(allKeys.map(k=>[k,mergedFields[k].value]));
-    return{parser:"garmin-v2.7.0-merge",found:Object.values(data).filter(v=>v!=null).length,data,fields:mergedFields};
+    return{parser:"garmin-v2.8.0-merge",found:Object.values(data).filter(v=>v!=null).length,data,fields:mergedFields};
   }
   return{parse,merge,classify,summaryEvidence,cleanText,normalize};
 });
