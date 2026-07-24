@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#061827">
+  <title>OCR Lab V2.4 · Garmin Engine V4.2 estable · etiquetas y validaciones</title>
+  <link rel="stylesheet" href="styles.css?v=4.2.0">
+</head>
+<body>
+  <main class="app">
+    <header class="hero">
+      <span class="eyebrow">OCR LAB · V4.2.0</span>
+      <h1>Garmin Engine V4.2 estable · etiquetas y validaciones</h1>
+      <p>Sube varias capturas del mismo entrenamiento. Se leen por separado y se fusionan en un único resultado. No guarda datos.</p>
+    </header>
+
+    <section class="card">
+      <label class="upload-button" for="imageInput">Subir capturas Garmin</label>
+      <input id="imageInput" type="file" accept="image/*" multiple hidden>
+      <p id="fileInfo" class="muted">Ningún archivo seleccionado.</p>
+      <div id="previewGrid" class="preview-grid"></div>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <h2>Estado</h2>
+        <span id="statusBadge" class="badge idle">Esperando</span>
+      </div>
+      <p id="statusText">Selecciona varias capturas de una misma actividad.</p>
+      <div class="progress"><div id="progressBar"></div></div>
+      <p id="progressText" class="muted">0 %</p>
+    </section>
+
+    <section id="metricsCard" class="card" hidden>
+      <div class="section-head">
+        <h2>Métricas fusionadas</h2>
+        <span id="foundBadge" class="badge success">0 campos</span>
+      </div>
+      <div id="metricsGrid" class="metrics-grid"></div>
+    </section>
+
+    <section id="debugCard" class="card" hidden>
+      <div class="section-head">
+        <h2>Resultado por captura</h2>
+        <button id="toggleDebugButton" class="secondary">Ocultar</button>
+      </div>
+      <div id="debugGrid" class="debug-grid"></div>
+    </section>
+
+    <section id="jsonCard" class="card" hidden>
+      <div class="section-head">
+        <h2>JSON único</h2>
+        <button id="copyJsonButton" class="secondary">Copiar</button>
+      </div>
+      <pre id="jsonOutput" class="output"></pre>
+    </section>
+
+    <section id="resultCard" class="card" hidden>
+      <div class="section-head">
+        <h2>Texto OCR combinado</h2>
+        <button id="copyButton" class="secondary">Copiar</button>
+      </div>
+      <pre id="ocrOutput" class="output"></pre>
+    </section>
+
+    <section id="errorCard" class="card error-card" hidden>
+      <h2>Error técnico</h2>
+      <pre id="errorOutput" class="output error-output"></pre>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+  <script src="garmin-utils.js?v=4.2.0"></script>
+  <script src="validators.js?v=4.2.0"></script>
+  <script src="extractor-engine.js?v=4.2.0"></script>
+  <script src="screen-detector.js?v=4.2.0"></script>
+  <script src="parser-summary.js?v=4.2.0"></script>
+  <script src="parser-statistics.js?v=4.2.0"></script>
+  <script src="fusion.js?v=4.2.0"></script>
+  <script src="garmin.js?v=4.2.0"></script>
+  <script src="app.js?v=4.2.0"></script>
+</body>
+</html>
