@@ -1,15 +1,18 @@
-# OCR Lab V2.8 — Métricas Garmin
+# OCR Lab V3.1 — Arquitectura modular Garmin
 
-Parte de la V2.7 funcional.
+La aplicación se divide en módulos:
 
-Correcciones:
+- `garmin-utils.js`: funciones compartidas.
+- `screen-detector.js`: identifica Resumen o Estadísticas.
+- `parser-summary.js`: extrae identidad y métricas principales.
+- `parser-statistics.js`: extrae métricas avanzadas.
+- `fusion.js`: combina todas las capturas.
+- `garmin.js`: fachada compatible con `app.js`.
 
-- Detecta `Frec. cardiaca máx.` y extrae la FC máxima.
-- Prioriza `Total de calorías quemadas`.
-- Usa `Calorías activas` como segunda opción.
-- Nunca interpreta `Calorías en reposo` como calorías totales.
-- Las capturas tomadas dentro de la pestaña Estadísticas se clasifican como `statistics`.
+Reglas principales:
 
-Importante:
-Título, lugar, actividad, fecha y hora de la actividad solo pueden obtenerse
-si se añade al menos una captura de la pestaña `Resumen`.
+- La captura Resumen es la única que aporta título, lugar, actividad, fecha y hora.
+- Las capturas Estadísticas completan FC máxima, cadencia, desnivel y otras métricas.
+- `Calorías totales` tiene prioridad sobre `Calorías activas`.
+- `Calorías en reposo` nunca se usa como total.
+- La fusión conserva el dato de mayor confianza.
