@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#04111f" />
+  <title>OCR Lab · Garmin</title>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <style>
+    :root{
+      color-scheme:dark;
+      --bg:#020a13; --card:#071827; --line:#17405a; --cyan:#36d9f5;
+      --text:#f5f8fa; --muted:#9fb0b7; --ok:#42dda1; --warn:#ffc45b; --bad:#ff7070;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    main{max-width:860px;margin:auto;padding:24px 18px 80px}
+    h1{font-size:clamp(2rem,8vw,4rem);margin:0 0 8px}.eyebrow{color:var(--cyan);font-weight:800;letter-spacing:.18em}
+    p{color:var(--muted);line-height:1.5}.card{background:var(--card);border:1px solid var(--line);border-radius:24px;padding:20px;margin-top:18px}
+    .upload{display:block;width:100%;padding:18px;border:0;border-radius:18px;background:linear-gradient(90deg,#4aa9ff,#57e6ef);color:#02101a;font-size:1.15rem;font-weight:900;text-align:center;cursor:pointer}
+    input[type=file]{display:none}.grid{display:grid;gap:14px}.stats{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-top:16px}
+    .stat{background:#0b2234;border:1px solid #163b54;border-radius:16px;padding:14px}.stat b{display:block;font-size:1.3rem;margin-top:4px}
+    .label{font-size:.8rem;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}
+    #preview{width:100%;max-height:520px;object-fit:contain;background:#000;border-radius:16px;display:none;margin-top:14px}
+    progress{width:100%;height:16px;accent-color:var(--cyan)}
+    .status{font-weight:800;color:var(--cyan)}
+    .pill{display:inline-flex;padding:7px 11px;border-radius:999px;border:1px solid var(--line);color:var(--muted);font-weight:800}
+    pre{white-space:pre-wrap;word-break:break-word;background:#020910;border:1px solid #15344a;border-radius:16px;padding:16px;min-height:140px;color:#d9f7ff}
+    table{width:100%;border-collapse:collapse}td{padding:11px 6px;border-bottom:1px solid #15344a}td:first-child{color:var(--muted)}
+    .actions{display:flex;gap:10px;flex-wrap:wrap}.secondary{padding:12px 15px;border-radius:14px;border:1px solid var(--line);background:#0b2234;color:var(--text);font-weight:800;cursor:pointer}
+    .error{color:var(--bad)} .ok{color:var(--ok)}
+  </style>
+</head>
+<body>
+<main>
+  <div class="eyebrow">OCR LAB · V1</div>
+  <h1>Prueba Garmin</h1>
+  <p>Página independiente para comprobar que el OCR funciona antes de integrarlo en Corredor Sólido. No guarda datos.</p>
+
+  <section class="card">
+    <label class="upload" for="fileInput">📷 Subir una captura</label>
+    <input id="fileInput" type="file" accept="image/*" />
+    <img id="preview" alt="Vista previa de la captura" />
+  </section>
+
+  <section class="card">
+    <div class="label">Estado</div>
+    <p id="status" class="status">Esperando una imagen.</p>
+    <progress id="progress" max="100" value="0"></progress>
+    <div class="grid stats">
+      <div class="stat"><span class="label">Progreso</span><b id="progressText">0 %</b></div>
+      <div class="stat"><span class="label">Marca</span><b id="brand">—</b></div>
+      <div class="stat"><span class="label">Confianza</span><b id="confidence">—</b></div>
+      <div class="stat"><span class="label">Tiempo</span><b id="elapsed">—</b></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="label">Datos detectados (prueba)</div>
+    <table><tbody id="metrics"></tbody></table>
+  </section>
+
+  <section class="card">
+    <div class="actions">
+      <span class="pill" id="charCount">0 caracteres</span>
+      <button class="secondary" id="copyText" type="button">Copiar texto OCR</button>
+      <button class="secondary" id="copyJson" type="button">Copiar JSON</button>
+    </div>
+    <h2>Texto OCR bruto</h2>
+    <pre id="rawText">Aquí aparecerá exactamente el texto que consiga leer.</pre>
+  </section>
+
+  <section class="card">
+    <h2>Diagnóstico</h2>
+    <pre id="diagnostic">Sin prueba todavía.</pre>
+  </section>
+</main>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const fileInput = $('fileInput');
+  const preview = $('preview');
+  const status = $('status');
+  const progress = $('progress');
+  const progressText = $('progressText');
+  const brandEl = $('brand');
+  const confidenceEl = $('confidence');
+  const elapsedEl = $('elapsed');
+  const rawText = $('rawText');
+  const charCount = $('charCount');
+  const metricsBody = $('metrics');
+  const diagnostic = $('diagnostic');
+  let lastResult = { brand:null, text:'', metrics:{} };
+
+  function normalize(text){
+    return text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  }
+  function detectBrand(text){
+    const t = normalize(text);
+    const garminTerms = ['garmin','stamina','dinamica de carrera','training effect','beneficio principal','intervalos de entrenamiento','ritmo medio adapt pend'];
+    const appleTerms = ['apple fitness','anillos de actividad','ritmo cardiaco medio','tiempo transcurrido'];
+    const amazfitTerms = ['zepp','amazfit','pai','efecto del entrenamiento aerobico'];
+    const score = terms => terms.reduce((n,x)=>n+(t.includes(x)?1:0),0);
+    const scores = { Garmin:score(garminTerms), Apple:score(appleTerms), Amazfit:score(amazfitTerms) };
+    const [brand, value] = Object.entries(scores).sort((a,b)=>b[1]-a[1])[0];
+    return value > 0 ? brand : 'No identificada';
+  }
+  function firstMatch(text, patterns){
+    for(const p of patterns){ const m=text.match(p); if(m) return m[1].trim(); }
+    return '';
+  }
+  function parseMetrics(text){
+    const cleaned = text.replace(/\r/g,'');
+    return {
+      distancia:firstMatch(cleaned,[/distancia(?: recorrida)?\s*[:\-]?\s*([0-9]+[,.][0-9]+\s*km)/i]),
+      tiempo:firstMatch(cleaned,[/tiempo de carrera\s*[:\-]?\s*([0-9]{1,2}:[0-9]{2}(?::[0-9]{2})?)/i,/tiempo\s*[:\-]?\s*([0-9]{1,2}:[0-9]{2}:[0-9]{2})/i]),
+      ritmo:firstMatch(cleaned,[/ritmo medio\s*[:\-]?\s*([0-9]{1,2}:[0-9]{2}\s*\/\s*km)/i,/ritmo del recorrido\s*[:\-]?\s*([0-9]{1,2}:[0-9]{2}\s*\/\s*km)/i]),
+      fc_media:firstMatch(cleaned,[/frecuencia cardiaca media\s*[:\-]?\s*([0-9]{2,3}\s*ppm)/i,/frec\.? cardiaca media\s*[:\-]?\s*([0-9]{2,3}\s*ppm)/i]),
+      fc_max:firstMatch(cleaned,[/frec\.? cardiaca max\.?\s*[:\-]?\s*([0-9]{2,3}\s*ppm)/i,/frecuencia cardiaca maxima\s*[:\-]?\s*([0-9]{2,3}\s*ppm)/i]),
+      cadencia:firstMatch(cleaned,[/cadencia media(?: de carrera)?\s*[:\-]?\s*([0-9]{2,3}\s*ppm)/i]),
+      calorias:firstMatch(cleaned,[/calorias activas\s*[:\-]?\s*([0-9]{2,4})/i]),
+      stamina_final:firstMatch(cleaned,[/potencial final\s*[:\-]?\s*([0-9]{1,3}%)/i])
+    };
+  }
+  function renderMetrics(metrics){
+    const labels={distancia:'Distancia',tiempo:'Tiempo',ritmo:'Ritmo',fc_media:'FC media',fc_max:'FC máxima',cadencia:'Cadencia',calorias:'Calorías activas',stamina_final:'Stamina final'};
+    metricsBody.innerHTML='';
+    Object.entries(labels).forEach(([key,label])=>{
+      const tr=document.createElement('tr');
+      const value=metrics[key] || 'No encontrado';
+      tr.innerHTML=`<td>${label}</td><td class="${metrics[key]?'ok':''}">${value}</td>`;
+      metricsBody.appendChild(tr);
+    });
+  }
+  function reset(){
+    progress.value=0; progressText.textContent='0 %'; brandEl.textContent='—'; confidenceEl.textContent='—'; elapsedEl.textContent='—';
+    rawText.textContent='Procesando…'; charCount.textContent='0 caracteres'; metricsBody.innerHTML=''; diagnostic.textContent='Iniciando prueba…';
+  }
+
+  fileInput.addEventListener('change', async () => {
+    const file=fileInput.files?.[0]; if(!file) return;
+    reset();
+    preview.src=URL.createObjectURL(file); preview.style.display='block';
+    status.textContent='Cargando motor OCR…';
+    const started=performance.now();
+    try{
+      if(!window.Tesseract) throw new Error('No se ha cargado Tesseract.js. Comprueba la conexión a internet.');
+      const result = await Tesseract.recognize(file, 'spa', {
+        logger: m => {
+          if(typeof m.progress==='number'){
+            const pct=Math.round(m.progress*100); progress.value=pct; progressText.textContent=pct+' %';
+          }
+          if(m.status) status.textContent=m.status;
+        }
+      });
+      const text=result?.data?.text || '';
+      const confidence=Math.round(result?.data?.confidence || 0);
+      const brand=detectBrand(text);
+      const metrics=parseMetrics(text);
+      const elapsed=((performance.now()-started)/1000).toFixed(1)+' s';
+      lastResult={brand,text,confidence,elapsed,metrics};
+      rawText.textContent=text || '[El OCR no devolvió texto]';
+      charCount.textContent=`${text.length} caracteres`;
+      brandEl.textContent=brand; confidenceEl.textContent=confidence+' %'; elapsedEl.textContent=elapsed;
+      renderMetrics(metrics);
+      status.textContent='Lectura terminada.';
+      diagnostic.textContent=JSON.stringify({archivo:file.name,tipo:file.type,tamano_bytes:file.size,marca:brand,confianza:confidence,caracteres:text.length,metricas_encontradas:Object.values(metrics).filter(Boolean).length,tiempo:elapsed},null,2);
+    }catch(err){
+      status.textContent='Error durante la lectura.'; status.classList.add('error');
+      rawText.textContent='No se pudo completar el OCR.';
+      elapsedEl.textContent=((performance.now()-started)/1000).toFixed(1)+' s';
+      diagnostic.textContent=(err && (err.stack||err.message)) ? (err.stack||err.message) : String(err);
+    }
+  });
+
+  $('copyText').addEventListener('click', async()=>{ try{await navigator.clipboard.writeText(lastResult.text||''); status.textContent='Texto copiado.';}catch{status.textContent='No se pudo copiar automáticamente.';} });
+  $('copyJson').addEventListener('click', async()=>{ try{await navigator.clipboard.writeText(JSON.stringify(lastResult,null,2)); status.textContent='JSON copiado.';}catch{status.textContent='No se pudo copiar automáticamente.';} });
+  renderMetrics({});
+})();
+</script>
+</body>
+</html>
