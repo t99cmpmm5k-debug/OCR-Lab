@@ -3,30 +3,30 @@
 
   function parse(text){
     const screen=root.GarminScreenDetector.detect(text);
-    let parsed;
+    const base=screen.type==="summary"
+      ? root.GarminSummaryParser.parse(text)
+      : root.GarminStatisticsParser.parse(text);
 
-    if(screen.type==="summary"){
-      parsed=root.GarminSummaryParser.parse(text);
-    }else{
-      parsed=root.GarminStatisticsParser.parse(text);
-    }
+    const candidates=root.GarminCandidateEngine.extract(text,screen.type);
 
     const data=Object.fromEntries(
-      Object.entries(parsed.fields).map(([k,v])=>[k,v.value])
+      Object.entries(base.fields||{}).map(([k,v])=>[k,v.value])
     );
 
     return{
-      parser:parsed.parser,
+      parser:base.parser,
       screen,
       found:Object.values(data).filter(v=>v!=null).length,
       data,
-      fields:parsed.fields,
+      fields:base.fields,
+      candidates,
       raw_text:text
     };
   }
 
   function merge(results){
-    return root.GarminFusion.merge(results);
+    const withCapture=results.map((r,index)=>({...r,capture:index+1}));
+    return root.GarminConflictResolver.resolve(withCapture);
   }
 
   root.GarminParser={parse,merge};
