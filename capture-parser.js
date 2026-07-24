@@ -3,42 +3,61 @@
   const U=root.GarminUtils;
   const V=root.GarminValidators;
 
-  function clean(text){
-    return U.cleanText(text);
+  function number(v){ return U.num(v); }
+  function pace(v){ return U.pace(v); }
+  function duration(v){ return U.duration(v); }
+
+  function lines(text){
+    return U.linesOf(text);
   }
 
-  function take(text, labelPatterns, valuePatterns, parser, validator){
-    const raw=clean(text);
+  function isValueLine(line, regex){
+    return regex.test(String(line||"").trim());
+  }
 
-    for(const label of labelPatterns){
-      for(const value of valuePatterns){
-        const after=new RegExp(`(?:${label})[\\s\\S]{0,40}?(${value})`,"i");
-        const before=new RegExp(`(${value})[\\s\\S]{0,40}?(?:${label})`,"i");
+  function exactLabelValue(text,labelRegex,valueRegex,parser,validator,maxDistance=2){
+    const ls=lines(text);
 
-        for(const regex of [after,before]){
-          const m=raw.match(regex);
-          if(!m)continue;
-          const parsed=parser(m[1]);
-          if(parsed!=null && validator(parsed)){
-            return {value:parsed,source:m[0],confidence:.99};
-          }
+    for(let i=0;i<ls.length;i++){
+      const label=U.normalize(ls[i]);
+      if(!labelRegex.test(label))continue;
+
+      // Prefer value after the exact label.
+      for(let d=0;d<=maxDistance;d++){
+        const idx=i+d;
+        if(idx>=ls.length)break;
+        const source=ls[idx];
+        const m=source.match(valueRegex);
+        if(!m)continue;
+        const value=parser(m[1]||m[0]);
+        if(value!=null&&validator(value)){
+          return {value,source:`${ls[i]} | ${source}`,confidence:.99};
+        }
+      }
+
+      // Then allow a value immediately before the label.
+      for(let d=1;d<=maxDistance;d++){
+        const idx=i-d;
+        if(idx<0)break;
+        const source=ls[idx];
+        const m=source.match(valueRegex);
+        if(!m)continue;
+        const value=parser(m[1]||m[0]);
+        if(value!=null&&validator(value)){
+          return {value,source:`${source} | ${ls[i]}`,confidence:.97};
         }
       }
     }
     return null;
   }
 
-  function number(v){ return U.num(v); }
-  function pace(v){ return U.pace(v); }
-  function duration(v){ return U.duration(v); }
-
   function titleData(text){
-    const lines=U.linesOf(text);
-    const noteIndex=lines.findIndex(x=>/anadir notas|añadir notas/.test(U.normalize(x)));
+    const ls=lines(text);
+    const noteIndex=ls.findIndex(x=>/anadir notas|añadir notas/.test(U.normalize(x)));
     if(noteIndex<1)return {title:null,location:null,activity:null};
 
     const blocked=/^(carrera|running|actividad|resumen|estadisticas|vueltas|graficos|equipo)$/i;
-    const pool=lines.slice(Math.max(0,noteIndex-5),noteIndex).reverse();
+    const pool=ls.slice(Math.max(0,noteIndex-5),noteIndex).reverse();
 
     for(const line of pool){
       let title=U.cleanText(line)
@@ -65,8 +84,10 @@
 
   function parse(text){
     const screen=root.GarminScreenDetector.detect(text);
-    const raw=clean(text);
-    const title=screen.type==="summary" ? titleData(raw) : {title:null,location:null,activity:null};
+    const raw=U.cleanText(text);
+    const identity=screen.type==="summary"
+      ? titleData(raw)
+      : {title:null,location:null,activity:null};
 
     const date=screen.type==="summary"
       ? U.first(raw,new RegExp(`\\b([0-3]?[0-9])\\s+(${U.MONTHS})(?:\\s+(20[0-9]{2}))?\\b`,"i"))
@@ -74,73 +95,83 @@
 
     const time=date ? U.first(raw,/\b([0-2]?[0-9]):([0-5][0-9])\b/) : null;
 
-    const distance=take(raw,
-      ["distancia(?: recorrida| real)?"],
-      ["[0-9]{1,3}[,.][0-9]{1,2}\\s*km"],
-      number,V.distance
+    const distance=exactLabelValue(
+      raw,
+      /^(distancia|distancia recorrida|distancia real)$/,
+      /\b([0-9]{1,3}[,.][0-9]{1,2})\s*km\b/i,
+      number,V.distance,2
     );
 
-    const avgHr=take(raw,
-      ["frecuencia cardiaca media","fc media"],
-      ["(?:[3-9][0-9]|1[0-9]{2}|2[0-4][0-9])\\s*(?:ppm|bpm)"],
-      number,V.heartRate
+    const avgHr=exactLabelValue(
+      raw,
+      /^(frecuencia cardiaca media|fc media)$/,
+      /\b([3-9][0-9]|1[0-9]{2}|2[0-4][0-9])\s*(?:ppm|bpm)\b/i,
+      number,V.heartRate,2
     );
 
-    const maxHr=take(raw,
-      ["frecuencia cardiaca maxima","frec\\.?\\s*cardiaca\\s*max\\.?","fc maxima"],
-      ["(?:[3-9][0-9]|1[0-9]{2}|2[0-4][0-9])\\s*(?:ppm|bpm)"],
-      number,V.heartRate
+    const maxHr=exactLabelValue(
+      raw,
+      /^(frecuencia cardiaca maxima|frec\.?\s*cardiaca\s*max\.?|fc maxima)$/,
+      /\b([3-9][0-9]|1[0-9]{2}|2[0-4][0-9])\s*(?:ppm|bpm)\b/i,
+      number,V.heartRate,2
     );
 
-    const avgPace=take(raw,
-      ["ritmo medio(?: en movimiento)?","ritmo promedio","ritmo del recorrido"],
-      ["[0-9]{1,2}\\s*[:.]\\s*[0-5][0-9]\\s*\\/\\s*km"],
-      pace,V.pace
+    const avgPace=exactLabelValue(
+      raw,
+      /^(ritmo medio|ritmo promedio|ritmo del recorrido)$/,
+      /\b([0-9]{1,2}\s*[:.]\s*[0-5][0-9])\s*\/\s*km\b/i,
+      pace,V.pace,2
     );
 
-    const totalTime=take(raw,
-      ["tiempo total","duracion total"],
-      ["(?:[0-9]{1,2}:)?[0-9]{1,3}:[0-5][0-9]"],
-      duration,V.duration
+    const totalTime=exactLabelValue(
+      raw,
+      /^(tiempo total|duracion total)$/,
+      /\b((?:[0-9]{1,2}:)?[0-9]{1,3}:[0-5][0-9])\b/,
+      duration,V.duration,2
     );
 
-    const totalCalories=take(raw,
-      ["calorias totales","total de calorias quemadas","total de calorias","total calorias"],
-      ["[0-9]{2,5}(?:\\s*kcal)?"],
-      number,V.calories
+    const totalCalories=exactLabelValue(
+      raw,
+      /^(calorias totales|total de calorias quemadas|total de calorias|total calorias)$/,
+      /\b([0-9]{2,5})\s*(?:kcal)?\b/i,
+      number,V.calories,2
     );
 
-    const activeCalories=take(raw,
-      ["calorias activas"],
-      ["[0-9]{2,5}(?:\\s*kcal)?"],
-      number,V.calories
+    const activeCalories=exactLabelValue(
+      raw,
+      /^calorias activas$/,
+      /\b([0-9]{2,5})\s*(?:kcal)?\b/i,
+      number,V.calories,2
     );
 
-    const cadence=take(raw,
-      ["cadencia media de carrera","cadencia media"],
-      ["[0-9]{2,3}\\s*(?:ppm|spm)"],
-      number,V.cadence
+    const cadence=exactLabelValue(
+      raw,
+      /^(cadencia media de carrera|cadencia media)$/,
+      /\b([0-9]{2,3})\s*(?:ppm|spm)\b/i,
+      number,V.cadence,2
     );
 
-    const elevation=take(raw,
-      ["ascenso total","desnivel positivo","ganancia de altura"],
-      ["[0-9]{1,5}\\s*m"],
-      number,V.elevation
+    const elevation=exactLabelValue(
+      raw,
+      /^(ascenso total|desnivel positivo|ganancia de altura)$/,
+      /\b([0-9]{1,5})\s*m\b/i,
+      number,V.elevation,2
     );
 
-    const temperature=take(raw,
-      ["temperatura media","temperatura"],
-      ["-?[0-9]{1,2}(?:[,.][0-9])?\\s*°?\\s*c"],
-      number,V.temperature
+    const temperature=exactLabelValue(
+      raw,
+      /^(temperatura media|temperatura)$/,
+      /\b(-?[0-9]{1,2}(?:[,.][0-9])?)\s*°?\s*c\b/i,
+      number,V.temperature,2
     );
 
     return {
       source:"Garmin",
       screen_type:screen.type,
       identity:{
-        title:title.title,
-        location:title.location,
-        activity:title.activity,
+        title:identity.title,
+        location:identity.location,
+        activity:identity.activity,
         date:date?`${Number(date.match[1])} ${date.match[2].toLowerCase()}${date.match[3]?" "+date.match[3]:""}`:null,
         time:time?`${Number(time.match[1])}:${time.match[2]}`:null
       },
